@@ -9,6 +9,7 @@ export type MatchEventType = 'goal' | 'opponent_goal' | 'yellow_card' | 'red_car
 export interface UserProfile {
   uid: string;
   displayName: string;
+  email?: string;
   photoUrl?: string;
   activeTeamId?: string;
   chatPushEnabled?: boolean;
@@ -270,7 +271,7 @@ export const FIELD_LIMITS = {
   MAX_JERSEY: 99,
 };
 
-const ASSET_BASE = import.meta.env.BASE_URL || '/';
+const ASSET_BASE = import.meta.env?.BASE_URL || '/';
 
 export const STUDIO_IMAGES = {
   heroPitch: `${ASSET_BASE}src/assets/images/light_studio_hero_1795628381131.jpg`,

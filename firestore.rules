@@ -46,10 +46,11 @@ service cloud.firestore {
     // 3. Entity Validation Blueprints
     function isValidUserProfile(data) {
       return data.keys().hasAll(['uid', 'displayName', 'createdAt', 'updatedAt'])
-        && data.keys().hasOnly(['uid', 'displayName', 'photoUrl', 'activeTeamId', 'chatPushEnabled', 'matchPushEnabled', 'createdAt', 'updatedAt'])
+        && data.keys().hasOnly(['uid', 'displayName', 'email', 'photoUrl', 'activeTeamId', 'chatPushEnabled', 'matchPushEnabled', 'createdAt', 'updatedAt'])
         && isValidId(data.uid)
         && data.uid == request.auth.uid
         && data.displayName is string && data.displayName.size() >= 1 && data.displayName.size() <= 80
+        && (!('email' in data) || (data.email is string && data.email.size() <= 160))
         && (!('photoUrl' in data) || (data.photoUrl is string && data.photoUrl.size() <= 200000))
         && (!('activeTeamId' in data) || (data.activeTeamId is string && data.activeTeamId.size() <= 128))
         && (!('chatPushEnabled' in data) || data.chatPushEnabled is bool)
@@ -221,7 +222,7 @@ service cloud.firestore {
 
     // 4. Collection Rules
 
-    // Users (Private Profile, Zero PII stored)
+    // Users (Private Profile, strictly owner-only read/write, never list)
     match /users/{userId} {
       allow get: if isValidId(userId) && isOwner(userId);
       allow create: if isValidId(userId)
@@ -237,7 +238,8 @@ service cloud.firestore {
         && incoming().uid == existing().uid
         && incoming().createdAt == existing().createdAt
         && incoming().updatedAt == request.time
-        && incoming().diff(existing()).affectedKeys().hasOnly(['displayName', 'photoUrl', 'activeTeamId', 'chatPushEnabled', 'matchPushEnabled', 'updatedAt']);
+        && (!('email' in existing()) || !('email' in incoming()) || incoming().email == existing().email)
+        && incoming().diff(existing()).affectedKeys().hasOnly(['displayName', 'email', 'photoUrl', 'activeTeamId', 'chatPushEnabled', 'matchPushEnabled', 'updatedAt']);
 
       match /teamMemberships/{teamId} {
         allow list: if isOwner(userId);

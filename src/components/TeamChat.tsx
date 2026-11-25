@@ -10,9 +10,14 @@ import {
   setDoc,
   Timestamp,
 } from 'firebase/firestore';
-import { MessageSquare, Send } from 'lucide-react';
+import { AlertTriangle, MessageSquare, RotateCcw, Send } from 'lucide-react';
 import { motion } from 'motion/react';
-import { db, formatFriendlyFirebaseError, handleFirestoreError, OperationType } from '../lib/firebase';
+import {
+  captureFirestoreError,
+  db,
+  formatFriendlyFirebaseError,
+  OperationType,
+} from '../lib/firebase';
 import { createClientId } from '../lib/imageUtils';
 import { FIELD_LIMITS, Team, TeamMember, TeamMessage } from '../types/studio';
 
@@ -20,6 +25,7 @@ interface TeamChatProps {
   team: Team;
   currentMember: TeamMember | null;
   currentUserId: string;
+  currentUserName?: string;
   onMessageSent?: () => void;
 }
 
@@ -27,32 +33,42 @@ export const TeamChat: React.FC<TeamChatProps> = ({
   team,
   currentMember,
   currentUserId,
+  currentUserName,
   onMessageSent,
 }) => {
   const [messages, setMessages] = useState<TeamMessage[]>([]);
+  const [loading, setLoading] = useState(true);
+  const [loadError, setLoadError] = useState<string | null>(null);
+  const [retryNonce, setRetryNonce] = useState(0);
   const [text, setText] = useState('');
   const [sending, setSending] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const bottomRef = useRef<HTMLDivElement | null>(null);
 
   useEffect(() => {
+    setLoading(true);
+    setLoadError(null);
     const path = `teams/${team.id}/messages`;
     const q = query(
       collection(db, 'teams', team.id, 'messages'),
-      orderBy('createdAt', 'asc'),
+      orderBy('createdAt', 'desc'),
       limit(150)
     );
     const unsub = onSnapshot(
       q,
       (snap) => {
-        setMessages(snap.docs.map((d) => d.data() as TeamMessage));
+        const list = snap.docs.map((d) => d.data() as TeamMessage).reverse();
+        setMessages(list);
+        setLoadError(null);
+        setLoading(false);
       },
       (err) => {
-        handleFirestoreError(err, OperationType.LIST, path);
+        setLoadError(captureFirestoreError(err, OperationType.LIST, path));
+        setLoading(false);
       }
     );
     return () => unsub();
-  }, [team.id]);
+  }, [team.id, retryNonce]);
 
   useEffect(() => {
     bottomRef.current?.scrollIntoView({ behavior: 'smooth' });
@@ -66,14 +82,17 @@ export const TeamChat: React.FC<TeamChatProps> = ({
     setSending(true);
 
     const msgId = createClientId('msg');
+    const senderName = (currentMember?.name || currentUserName || 'Jogador')
+      .trim()
+      .slice(0, FIELD_LIMITS.MAX_PLAYER_NAME) || 'Jogador';
     try {
       await setDoc(doc(db, 'teams', team.id, 'messages', msgId), {
         id: msgId,
         teamId: team.id,
         senderId: currentUserId,
-        senderName: currentMember?.name || 'Jogador',
+        senderName,
         senderJersey: currentMember?.jerseyNumber || 0,
-        senderPosition: currentMember?.position || '',
+        senderPosition: (currentMember?.position || '').slice(0, 40),
         text: trimmed.slice(0, FIELD_LIMITS.MAX_MESSAGE),
         createdAt: serverTimestamp(),
       });
@@ -113,7 +132,30 @@ export const TeamChat: React.FC<TeamChatProps> = ({
       </div>
 
       <div className="flex-1 space-y-3 overflow-y-auto bg-[#F8FAFC] p-5">
-        {messages.length === 0 ? (
+        {loading ? (
+          <div className="flex h-full flex-col items-center justify-center text-center">
+            <MessageSquare className="h-8 w-8 animate-pulse text-emerald-600/70" />
+            <p className="mt-3 text-sm font-semibold text-slate-700">
+              Carregando mensagens do vestiário...
+            </p>
+          </div>
+        ) : loadError ? (
+          <div className="flex h-full flex-col items-center justify-center px-4 text-center">
+            <AlertTriangle className="h-8 w-8 text-amber-600" />
+            <p className="mt-3 text-sm font-bold text-slate-900">
+              Não foi possível carregar as mensagens
+            </p>
+            <p className="mt-1 max-w-md text-xs text-slate-600">{loadError}</p>
+            <button
+              type="button"
+              onClick={() => setRetryNonce((n) => n + 1)}
+              className="btn-studio mt-4 inline-flex min-h-[40px] items-center gap-2 rounded-xl border border-emerald-700 border-b-[3px] bg-emerald-600 px-4 text-xs font-bold text-white hover:bg-emerald-500 cursor-pointer"
+            >
+              <RotateCcw className="h-3.5 w-3.5" />
+              <span>Tentar novamente</span>
+            </button>
+          </div>
+        ) : messages.length === 0 ? (
           <div className="flex h-full flex-col items-center justify-center text-center">
             <MessageSquare className="h-8 w-8 text-emerald-600/70" />
             <p className="mt-3 text-sm font-semibold text-slate-700">
@@ -183,7 +225,7 @@ export const TeamChat: React.FC<TeamChatProps> = ({
         />
         <button
           type="submit"
-          disabled={sending || !text.trim()}
+          disabled={sending || !text.trim() || !!loadError}
           aria-label="Enviar mensagem"
           className="btn-studio inline-flex min-h-[44px] items-center justify-center gap-2 rounded-xl border border-emerald-700 border-b-[3px] bg-emerald-600 px-5 text-sm font-bold text-white hover:bg-emerald-500 disabled:opacity-50 cursor-pointer"
         >

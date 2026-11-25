@@ -1,4 +1,4 @@
-import React, { useEffect, useMemo, useState } from 'react';
+import React, { useEffect, useMemo, useRef, useState } from 'react';
 import {
   collection,
   doc,
@@ -19,7 +19,12 @@ import {
   Trophy,
 } from 'lucide-react';
 import { motion } from 'motion/react';
-import { db, formatFriendlyFirebaseError, handleFirestoreError, OperationType } from '../lib/firebase';
+import {
+  captureFirestoreError,
+  db,
+  formatFriendlyFirebaseError,
+  OperationType,
+} from '../lib/firebase';
 import { createClientId } from '../lib/imageUtils';
 import {
   FIELD_LIMITS,
@@ -60,6 +65,9 @@ export const LiveMatchCenter: React.FC<LiveMatchCenterProps> = ({
   const [error, setError] = useState<string | null>(null);
   const [busy, setBusy] = useState(false);
 
+  const selectedMatchIdRef = useRef<string | null>(selectedMatchId);
+  selectedMatchIdRef.current = selectedMatchId;
+
   useEffect(() => {
     const matchesPath = `teams/${team.id}/matches`;
     const q = query(collection(db, 'teams', team.id, 'matches'), orderBy('createdAt', 'desc'));
@@ -68,17 +76,18 @@ export const LiveMatchCenter: React.FC<LiveMatchCenterProps> = ({
       (snap) => {
         const list = snap.docs.map((d) => d.data() as Match);
         setMatches(list);
-        if (list.length > 0 && (!selectedMatchId || !list.some((m) => m.id === selectedMatchId))) {
+        const currentSel = selectedMatchIdRef.current;
+        if (list.length > 0 && (!currentSel || !list.some((m) => m.id === currentSel))) {
           const liveMatch = list.find((m) => m.status === 'live');
           setSelectedMatchId(liveMatch ? liveMatch.id : list[0].id);
         }
       },
       (err) => {
-        handleFirestoreError(err, OperationType.LIST, matchesPath);
+        setError(captureFirestoreError(err, OperationType.LIST, matchesPath));
       }
     );
     return () => unsub();
-  }, [team.id, selectedMatchId]);
+  }, [team.id]);
 
   const activeMatch = useMemo(
     () => matches.find((m) => m.id === selectedMatchId) || null,
@@ -101,7 +110,7 @@ export const LiveMatchCenter: React.FC<LiveMatchCenterProps> = ({
         setEvents(snap.docs.map((d) => d.data() as MatchEvent));
       },
       (err) => {
-        handleFirestoreError(err, OperationType.LIST, eventsPath);
+        setError(captureFirestoreError(err, OperationType.LIST, eventsPath));
       }
     );
     return () => unsub();

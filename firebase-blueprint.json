@@ -16,6 +16,10 @@
           "minLength": 1,
           "maxLength": 80
         },
+        "email": {
+          "type": "string",
+          "maxLength": 160
+        },
         "photoUrl": {
           "type": "string",
           "maxLength": 200000

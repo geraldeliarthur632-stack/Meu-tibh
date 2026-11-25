@@ -61,8 +61,50 @@ export function handleFirestoreError(
   throw new Error(JSON.stringify(errInfo));
 }
 
-export function formatFriendlyFirebaseError(error: unknown): string {
+export function captureFirestoreError(
+  error: unknown,
+  operationType: OperationType,
+  path: string | null
+): string {
+  try {
+    handleFirestoreError(error, operationType, path);
+  } catch (wrapped) {
+    return formatFriendlyFirebaseError(wrapped);
+  }
+}
+
+export function extractRawFirebaseErrorMessage(error: unknown): string {
   const raw = error instanceof Error ? error.message : String(error);
+  if (raw.startsWith('{') && raw.includes('"operationType"')) {
+    try {
+      const parsed = JSON.parse(raw) as { error?: string };
+      if (parsed?.error) return parsed.error;
+    } catch {
+      // keep raw
+    }
+  }
+  return raw;
+}
+
+export function isPermissionDeniedError(error: unknown): boolean {
+  const raw = extractRawFirebaseErrorMessage(error).toLowerCase();
+  return raw.includes('missing or insufficient permissions') || raw.includes('permission-denied');
+}
+
+export function isOfflineOrUnavailableError(error: unknown): boolean {
+  const raw = extractRawFirebaseErrorMessage(error).toLowerCase();
+  return (
+    raw.includes('the client is offline') ||
+    raw.includes('unavailable') ||
+    raw.includes('network-request-failed') ||
+    raw.includes('failed to get document because the client is offline')
+  );
+}
+
+export function formatFriendlyFirebaseError(error: unknown): string {
+  const raw = extractRawFirebaseErrorMessage(error);
+  const lower = raw.toLowerCase();
+
   if (raw.includes('Quota exceeded')) {
     return 'Cota diária gratuita do Firestore atingida. A cota será renovada amanhã.';
   }
@@ -81,22 +123,78 @@ export function formatFriendlyFirebaseError(error: unknown): string {
   if (raw.includes('auth/weak-password')) {
     return 'A senha precisa ter pelo menos 6 caracteres.';
   }
+  if (raw.includes('auth/invalid-email')) {
+    return 'O endereço de e-mail informado não é válido.';
+  }
   if (raw.includes('auth/popup-closed-by-user')) {
     return 'A janela de login com Google foi fechada antes da conclusão.';
   }
-  if (raw.includes('Missing or insufficient permissions')) {
-    return 'Permissão insuficiente para esta operação. Verifique se seu e-mail está verificado e se você é membro do time.';
+  if (raw.includes('auth/popup-blocked')) {
+    return 'O navegador bloqueou a janela do login com Google. Permita pop-ups para este site e tente novamente.';
+  }
+  if (raw.includes('auth/cancelled-popup-request')) {
+    return 'Solicitação de login cancelada. Tente novamente.';
+  }
+  if (raw.includes('auth/unauthorized-domain')) {
+    return 'Este domínio não está autorizado no Firebase Authentication (Authentication > Settings > Authorized domains).';
+  }
+  if (raw.includes('auth/network-request-failed')) {
+    return 'Falha de conexão com a internet durante a autenticação. Verifique sua rede e tente novamente.';
+  }
+  if (raw.includes('auth/too-many-requests')) {
+    return 'Muitas tentativas em sequência. Aguarde alguns instantes e tente novamente.';
+  }
+  if (raw.includes('auth/user-disabled')) {
+    return 'Esta conta foi desativada no Firebase Authentication.';
+  }
+  if (lower.includes('missing or insufficient permissions') || lower.includes('permission-denied')) {
+    return 'Permissão insuficiente no Firestore. Verifique se seu e-mail foi confirmado e se você é membro autorizado deste grupo.';
+  }
+  if (isOfflineOrUnavailableError(raw)) {
+    return 'Não foi possível conectar ao Firestore no momento. Verifique sua conexão com a internet e tente novamente.';
+  }
+  if (lower.includes('deadline-exceeded') || lower.includes('tempo limite')) {
+    return 'O servidor do Firestore demorou para responder. Verifique sua conexão e clique em Tentar novamente.';
+  }
+  if (lower.includes('not-found')) {
+    return 'O registro solicitado não foi encontrado no banco de dados.';
+  }
+  if (lower.includes('failed-precondition')) {
+    return 'Operação bloqueada por pré-condição ou índice pendente no Firestore.';
   }
   return raw;
 }
 
-export async function testConnection(): Promise<void> {
+export async function withTimeout<T>(
+  promise: Promise<T>,
+  timeoutMs: number,
+  timeoutMessage = 'Tempo limite excedido ao comunicar com o Firebase.'
+): Promise<T> {
+  let timer: ReturnType<typeof setTimeout> | undefined;
+  try {
+    return await Promise.race([
+      promise,
+      new Promise<never>((_, reject) => {
+        timer = setTimeout(() => reject(new Error(timeoutMessage)), timeoutMs);
+      }),
+    ]);
+  } finally {
+    if (timer !== undefined) {
+      clearTimeout(timer);
+    }
+  }
+}
+
+export async function testConnection(): Promise<boolean> {
   try {
     await getDocFromServer(doc(db, 'test', 'connection'));
+    return true;
   } catch (error) {
     if (error instanceof Error && error.message.includes('the client is offline')) {
       console.error('Please check your Firebase configuration.');
+      return false;
     }
+    return true;
   }
 }
 

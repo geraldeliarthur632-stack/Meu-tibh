@@ -33,7 +33,7 @@ import {
   UNIT_METADATA,
 } from '../data/duolingoCurriculum';
 import { apiUrl, parseAiJsonResponse } from '../lib/apiUrl';
-import { db, handleFirestoreError, OperationType } from '../lib/firebase';
+import { captureFirestoreError, db, OperationType } from '../lib/firebase';
 import { MAX_VIDEO_CLIP_BYTES, uploadVideoClip } from '../lib/videoUpload';
 import {
   AiManualVideoResponse,
@@ -136,12 +136,15 @@ export const PositionManual: React.FC<PositionManualProps> = ({
   const [selfChoice, setSelfChoice] = useState<ManualAssessmentValue | null>(null);
   const [showNoVideoOptions, setShowNoVideoOptions] = useState<boolean>(false);
 
+  const [progressError, setProgressError] = useState<string | null>(null);
+
   // Sync Duolingo progress from Firestore
   useEffect(() => {
     const path = `users/${currentUserId}/manualProgress/${trackId}`;
     const unsub = onSnapshot(
       doc(db, 'users', currentUserId, 'manualProgress', trackId),
       (snap) => {
+        setProgressError(null);
         if (snap.exists()) {
           const data = snap.data() as ManualProgress;
           setProgress(data);
@@ -164,7 +167,7 @@ export const PositionManual: React.FC<PositionManualProps> = ({
         }
       },
       (err) => {
-        handleFirestoreError(err, OperationType.GET, path);
+        setProgressError(captureFirestoreError(err, OperationType.GET, path));
       }
     );
     return () => unsub();
@@ -246,13 +249,16 @@ export const PositionManual: React.FC<PositionManualProps> = ({
 
     setProgress(updated);
     setSavingProgress(true);
+    setProgressError(null);
     try {
       await setDoc(doc(db, 'users', currentUserId, 'manualProgress', trackId), updated);
     } catch (err) {
-      handleFirestoreError(
-        err,
-        OperationType.WRITE,
-        `users/${currentUserId}/manualProgress/${trackId}`
+      setProgressError(
+        captureFirestoreError(
+          err,
+          OperationType.WRITE,
+          `users/${currentUserId}/manualProgress/${trackId}`
+        )
       );
     } finally {
       setSavingProgress(false);
@@ -540,6 +546,15 @@ export const PositionManual: React.FC<PositionManualProps> = ({
             {unitCompletedCount} / {LESSONS_PER_UNIT} feitas
           </div>
         </div>
+
+        {progressError && (
+          <div
+            role="alert"
+            className="mt-4 rounded-xl border border-amber-200 bg-amber-50 px-4 py-2.5 text-xs text-amber-900"
+          >
+            Erro ao sincronizar progresso: {progressError}
+          </div>
+        )}
 
         {/* S-Curve Stepping Stone Path */}
         <div className="relative mx-auto mt-8 flex max-w-md flex-col items-center gap-6 pb-6">

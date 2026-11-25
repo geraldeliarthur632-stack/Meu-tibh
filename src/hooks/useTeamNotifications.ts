@@ -12,7 +12,7 @@ import {
   setDoc,
   updateDoc,
 } from 'firebase/firestore';
-import { db, handleFirestoreError, OperationType } from '../lib/firebase';
+import { captureFirestoreError, db, OperationType } from '../lib/firebase';
 import {
   Match,
   SPORTS_CONFIG,
@@ -81,6 +81,7 @@ export function useTeamNotifications({
     getBrowserPermissionState()
   );
   const [savingPref, setSavingPref] = useState(false);
+  const [prefError, setPrefError] = useState<string | null>(null);
   const [activeToast, setActiveToast] = useState<InAppNotificationToast | null>(null);
 
   const activeTabRef = useRef(activeTab);
@@ -141,7 +142,7 @@ export function useTeamNotifications({
         }
       },
       (err) => {
-        handleFirestoreError(err, OperationType.GET, path);
+        captureFirestoreError(err, OperationType.GET, path);
       }
     );
     return () => unsub();
@@ -231,6 +232,7 @@ export function useTeamNotifications({
 
       if (!user || !isVerifiedUser) return;
       setSavingPref(true);
+      setPrefError(null);
       const userPath = `users/${user.uid}`;
       try {
         const userRef = doc(db, 'users', user.uid);
@@ -244,6 +246,8 @@ export function useTeamNotifications({
           await setDoc(userRef, {
             uid: user.uid,
             displayName: (user.displayName || user.email?.split('@')[0] || 'Atleta').slice(0, 80),
+            email: (user.email || '').trim().slice(0, 160),
+            photoUrl: (user.photoURL || '').trim().slice(0, 200000),
             ...(activeTeam?.id ? { activeTeamId: activeTeam.id } : {}),
             chatPushEnabled: nextChat,
             matchPushEnabled: nextMatch,
@@ -252,7 +256,7 @@ export function useTeamNotifications({
           });
         }
       } catch (err) {
-        handleFirestoreError(err, OperationType.UPDATE, userPath);
+        setPrefError(captureFirestoreError(err, OperationType.UPDATE, userPath));
       } finally {
         setSavingPref(false);
       }
@@ -340,7 +344,7 @@ export function useTeamNotifications({
         );
       },
       (err) => {
-        handleFirestoreError(err, OperationType.LIST, path);
+        captureFirestoreError(err, OperationType.LIST, path);
       }
     );
 
@@ -436,7 +440,7 @@ export function useTeamNotifications({
         });
       },
       (err) => {
-        handleFirestoreError(err, OperationType.LIST, path);
+        captureFirestoreError(err, OperationType.LIST, path);
       }
     );
 
@@ -456,6 +460,7 @@ export function useTeamNotifications({
     chatPushEnabled,
     matchPushEnabled,
     savingPref,
+    prefError,
     activeToast,
     dismissToast: () => setActiveToast(null),
     requestPushPermission,

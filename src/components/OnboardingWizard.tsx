@@ -30,6 +30,7 @@ import { TeamCrest } from './TeamCrest';
 interface OnboardingWizardProps {
   user: User;
   initialInviteCode: string | null;
+  existingTeamIds?: string[];
   onTeamReady: (teamId: string) => void;
   onCancel?: () => void;
 }
@@ -37,6 +38,7 @@ interface OnboardingWizardProps {
 export const OnboardingWizard: React.FC<OnboardingWizardProps> = ({
   user,
   initialInviteCode,
+  existingTeamIds = [],
   onTeamReady,
   onCancel,
 }) => {
@@ -179,17 +181,24 @@ export const OnboardingWizard: React.FC<OnboardingWizardProps> = ({
     const userRef = doc(db, 'users', user.uid);
     const existingUser = await getDoc(userRef);
     if (existingUser.exists()) {
-      batch.update(userRef, {
-        displayName: trimmedPlayer,
+      const existingData = existingUser.data() as { displayName?: string };
+      const updatePayload: Record<string, unknown> = {
         activeTeamId: teamId,
         updatedAt: now,
-      });
+      };
+      if (!existingData?.displayName) {
+        updatePayload.displayName = trimmedPlayer;
+      }
+      batch.update(userRef, updatePayload);
     } else {
       batch.set(userRef, {
         uid: user.uid,
         displayName: trimmedPlayer,
-        photoUrl: user.photoURL || '',
+        email: (user.email || '').trim().slice(0, 160),
+        photoUrl: (user.photoURL || '').trim().slice(0, FIELD_LIMITS.MAX_PHOTO_LEN),
         activeTeamId: teamId,
+        chatPushEnabled: true,
+        matchPushEnabled: true,
         createdAt: now,
         updatedAt: now,
       });
@@ -327,6 +336,22 @@ export const OnboardingWizard: React.FC<OnboardingWizardProps> = ({
         return;
       }
       const freshInvite = freshInviteSnap.data() as InviteLookup;
+
+      if (existingTeamIds.includes(freshInvite.teamId)) {
+        window.history.replaceState({}, '', appPath(`/team/${freshInvite.teamId}`));
+        onTeamReady(freshInvite.teamId);
+        return;
+      }
+
+      const existingMembershipSnap = await getDoc(
+        doc(db, 'users', user.uid, 'teamMemberships', freshInvite.teamId)
+      );
+      if (existingMembershipSnap.exists()) {
+        window.history.replaceState({}, '', appPath(`/team/${freshInvite.teamId}`));
+        onTeamReady(freshInvite.teamId);
+        return;
+      }
+
       const freshTaken = freshInvite.takenJerseys || {};
       if (!isStaffSelected && freshTaken[String(effectiveJersey)]) {
         setInviteData(freshInvite);

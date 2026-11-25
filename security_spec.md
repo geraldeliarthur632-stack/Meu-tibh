@@ -2,7 +2,7 @@
 
 ## 1. Data Invariants
 1. **Master Gate Membership**: Subcollections under `/teams/{teamId}/**` (`members`, `messages`, `matches`, `events`) can ONLY be read or written by authenticated, email-verified users who have a member document at `/teams/{teamId}/members/{request.auth.uid}` (or who are creating the team atomically as `ownerId`).
-2. **PII Isolation**: No `email`, `phone`, or `address` is persisted in Firestore documents; `/users/{userId}` and `/users/{userId}/teamMemberships/{teamId}` are strictly restricted to `request.auth.uid == userId`.
+2. **PII Isolation**: `/users/{userId}` (which stores the owner's private profile including optional `email`) and `/users/{userId}/teamMemberships/{teamId}` are strictly restricted to `request.auth.uid == userId` (`allow get` only, never `allow list`); no `email`, `phone`, or `address` is ever exposed on public or team-shared documents.
 3. **Immutable Ownership & Identifiers**: `ownerId`, `teamId`, `createdBy`, `senderId`, and `createdAt` cannot be modified after creation.
 4. **Server Timestamp Enforcement**: `createdAt` and `updatedAt` MUST equal `request.time`.
 5. **Terminal State Locking**: Once a `Match` reaches `status == 'finished'`, no updates to the match or creation/deletion of its events are permitted.

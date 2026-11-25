@@ -30,7 +30,13 @@ import {
   Users,
 } from 'lucide-react';
 import { apiUrl, parseAiJsonResponse } from '../lib/apiUrl';
-import { db, formatFriendlyFirebaseError, handleFirestoreError, OperationType } from '../lib/firebase';
+import {
+  captureFirestoreError,
+  db,
+  formatFriendlyFirebaseError,
+  handleFirestoreError,
+  OperationType,
+} from '../lib/firebase';
 import { triggerFirstClickTip } from '../lib/firstClickCoach';
 import { createClientId } from '../lib/imageUtils';
 import { exportPlayPhotoPng, exportPlayVideo } from '../lib/playExporter';
@@ -156,7 +162,7 @@ export const PlaybookStudio: React.FC<PlaybookStudioProps> = ({
         setSavedPlays(snap.docs.map((d) => d.data() as TeamPlayDoc));
       },
       (err) => {
-        handleFirestoreError(err, OperationType.LIST, path);
+        setErrorMsg(captureFirestoreError(err, OperationType.LIST, path));
       }
     );
     return () => unsub();

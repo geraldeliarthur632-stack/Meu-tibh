@@ -25,13 +25,14 @@ import {
   TOTAL_MANUAL_LESSONS,
 } from '../data/duolingoCurriculum';
 import { PushPermissionState } from '../hooks/useTeamNotifications';
-import { auth, db, handleFirestoreError, OperationType } from '../lib/firebase';
+import { auth, captureFirestoreError, db, OperationType } from '../lib/firebase';
 import {
   isStaffPosition,
   ManualProgress,
   SPORTS_CONFIG,
   Team,
   TeamMember,
+  UserProfile,
   UserTeamMembership,
 } from '../types/studio';
 import { PWAInstallButton } from './PWAInstallButton';
@@ -39,6 +40,7 @@ import { TeamCrest } from './TeamCrest';
 
 interface ProfilePanelProps {
   user: User;
+  userProfile?: UserProfile | null;
   activeTeam: Team;
   currentMember: TeamMember | null;
   memberships: UserTeamMembership[];
@@ -46,6 +48,7 @@ interface ProfilePanelProps {
   chatPushEnabled: boolean;
   matchPushEnabled: boolean;
   savingPref: boolean;
+  prefError?: string | null;
   onRequestPermission: () => Promise<PushPermissionState>;
   onTogglePref: (key: 'chatPushEnabled' | 'matchPushEnabled', value: boolean) => Promise<void>;
   onSendTestNotification: () => Promise<void>;
@@ -57,6 +60,7 @@ interface ProfilePanelProps {
 
 export const ProfilePanel: React.FC<ProfilePanelProps> = ({
   user,
+  userProfile,
   activeTeam,
   currentMember,
   memberships,
@@ -64,6 +68,7 @@ export const ProfilePanel: React.FC<ProfilePanelProps> = ({
   chatPushEnabled,
   matchPushEnabled,
   savingPref,
+  prefError,
   onRequestPermission,
   onTogglePref,
   onSendTestNotification,
@@ -75,6 +80,7 @@ export const ProfilePanel: React.FC<ProfilePanelProps> = ({
   const [avatarError, setAvatarError] = useState(false);
   const [signingOut, setSigningOut] = useState(false);
   const [manualProgress, setManualProgress] = useState<ManualProgress | null>(null);
+  const [progressError, setProgressError] = useState<string | null>(null);
 
   const sportCfg = SPORTS_CONFIG[activeTeam.sport];
   const userPosition = currentMember?.position || sportCfg.positions[0];
@@ -89,6 +95,7 @@ export const ProfilePanel: React.FC<ProfilePanelProps> = ({
     const unsub = onSnapshot(
       doc(db, 'users', user.uid, 'manualProgress', trackId),
       (snap) => {
+        setProgressError(null);
         if (snap.exists()) {
           setManualProgress(snap.data() as ManualProgress);
         } else {
@@ -96,14 +103,14 @@ export const ProfilePanel: React.FC<ProfilePanelProps> = ({
         }
       },
       (err) => {
-        handleFirestoreError(err, OperationType.GET, path);
+        setProgressError(captureFirestoreError(err, OperationType.GET, path));
       }
     );
     return () => unsub();
   }, [user.uid, trackId]);
 
   const displayName =
-    currentMember?.name || user.displayName || user.email?.split('@')[0] || 'Atleta';
+    currentMember?.name || userProfile?.displayName || user.displayName || user.email?.split('@')[0] || 'Atleta';
 
   const initials = displayName
     .split(/\s+/)
@@ -397,6 +404,12 @@ export const ProfilePanel: React.FC<ProfilePanelProps> = ({
               </button>
             </div>
           </div>
+
+          {prefError && (
+            <div className="mt-3 rounded-xl border border-red-200 bg-red-50 px-3.5 py-2.5 text-xs text-red-700">
+              {prefError}
+            </div>
+          )}
         </section>
 
         {/* Right Column: Manual Duolingo Progress + Team Switcher */}
@@ -428,6 +441,11 @@ export const ProfilePanel: React.FC<ProfilePanelProps> = ({
             </div>
 
             <div className="mt-4">
+              {progressError && (
+                <div className="mb-3 rounded-xl border border-amber-200 bg-amber-50 px-3 py-2 text-xs text-amber-800">
+                  {progressError}
+                </div>
+              )}
               <div className="flex items-center justify-between text-xs font-bold text-slate-700">
                 <span>Lições concluídas</span>
                 <span className="font-mono-tabular">

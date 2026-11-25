@@ -1,4 +1,4 @@
-const rawApiBase = (import.meta.env.VITE_API_BASE_URL || '').trim().replace(/\/+$/, '');
+const rawApiBase = (import.meta.env?.VITE_API_BASE_URL || '').trim().replace(/\/+$/, '');
 
 export function apiUrl(path: string): string {
   const cleanPath = path.startsWith('/') ? path : `/${path}`;
@@ -6,7 +6,7 @@ export function apiUrl(path: string): string {
 }
 
 export function getAppBaseUrl(): string {
-  const raw = import.meta.env.BASE_URL || '/';
+  const raw = import.meta.env?.BASE_URL || '/';
   return raw.endsWith('/') ? raw : `${raw}/`;
 }
 
