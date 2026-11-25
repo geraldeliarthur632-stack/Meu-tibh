@@ -1,3 +1,5 @@
+import { apiUrl, parseAiJsonResponse } from './apiUrl';
+
 export const MAX_VIDEO_CLIP_BYTES = 35 * 1024 * 1024; // 35 MB per clip
 
 export interface UploadedClipMeta {
@@ -20,7 +22,7 @@ export async function uploadVideoClip(file: Blob, explicitMime?: string): Promis
   const mimeType =
     (explicitMime || (file as File).type || 'video/mp4').split(';')[0].trim() || 'video/mp4';
 
-  const res = await fetch('/api/ai/upload-clip', {
+  const res = await fetch(apiUrl('/api/ai/upload-clip'), {
     method: 'POST',
     headers: {
       'Content-Type': 'application/octet-stream',
@@ -29,9 +31,10 @@ export async function uploadVideoClip(file: Blob, explicitMime?: string): Promis
     body: file,
   });
 
-  const data = (await res.json().catch(() => ({}))) as Partial<UploadedClipMeta> & {
-    error?: string;
-  };
+  const data = await parseAiJsonResponse<Partial<UploadedClipMeta>>(
+    res,
+    'Falha ao enviar o vídeo para análise.'
+  );
   if (!res.ok || !data.clipId) {
     throw new Error(data.error || 'Falha ao enviar o vídeo para análise.');
   }

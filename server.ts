@@ -221,10 +221,48 @@ async function buildVideoPartsForGemini(
   return { parts, uploadedFileNames };
 }
 
+function isAllowedCorsOrigin(origin: string): boolean {
+  try {
+    const parsed = new URL(origin);
+    if (parsed.protocol === 'https:' && parsed.hostname.endsWith('.github.io')) {
+      return true;
+    }
+    if (parsed.hostname === 'localhost' || parsed.hostname === '127.0.0.1') {
+      return true;
+    }
+    if (process.env.APP_URL) {
+      const appUrlOrigin = new URL(process.env.APP_URL).origin;
+      if (origin === appUrlOrigin) return true;
+    }
+    const extra = (process.env.CORS_ORIGINS || '')
+      .split(',')
+      .map((s) => s.trim())
+      .filter(Boolean);
+    return extra.includes(origin);
+  } catch {
+    return false;
+  }
+}
+
 async function startServer() {
   await fs.promises.mkdir(CLIP_DIR, { recursive: true });
   const app = express();
   const httpServer = http.createServer(app);
+
+  app.use('/api', (req, res, next) => {
+    const origin = req.headers.origin;
+    if (typeof origin === 'string' && isAllowedCorsOrigin(origin)) {
+      res.setHeader('Access-Control-Allow-Origin', origin);
+      res.setHeader('Vary', 'Origin');
+      res.setHeader('Access-Control-Allow-Methods', 'GET, POST, OPTIONS');
+      res.setHeader('Access-Control-Allow-Headers', 'Content-Type, X-Clip-Mime');
+    }
+    if (req.method === 'OPTIONS') {
+      res.status(204).end();
+      return;
+    }
+    next();
+  });
 
   // Raw binary video clip upload (avoids JSON base64 overhead and payload limits)
   app.post(

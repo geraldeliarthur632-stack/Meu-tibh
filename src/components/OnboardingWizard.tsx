@@ -13,6 +13,7 @@ import {
   Users,
 } from 'lucide-react';
 import { motion } from 'motion/react';
+import { appPath } from '../lib/apiUrl';
 import { db, formatFriendlyFirebaseError, handleFirestoreError, OperationType } from '../lib/firebase';
 import { compressImageToDataUrl, createClientId, generateInviteCode } from '../lib/imageUtils';
 import {
@@ -387,7 +388,7 @@ export const OnboardingWizard: React.FC<OnboardingWizardProps> = ({
 
       await batch.commit();
 
-      window.history.replaceState({}, '', `/team/${freshInvite.teamId}`);
+      window.history.replaceState({}, '', appPath(`/team/${freshInvite.teamId}`));
       onTeamReady(freshInvite.teamId);
     } catch (err) {
       try {

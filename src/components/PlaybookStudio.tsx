@@ -29,6 +29,7 @@ import {
   Undo2,
   Users,
 } from 'lucide-react';
+import { apiUrl, parseAiJsonResponse } from '../lib/apiUrl';
 import { db, formatFriendlyFirebaseError, handleFirestoreError, OperationType } from '../lib/firebase';
 import { triggerFirstClickTip } from '../lib/firstClickCoach';
 import { createClientId } from '../lib/imageUtils';
@@ -467,7 +468,7 @@ export const PlaybookStudio: React.FC<PlaybookStudioProps> = ({
     setStatusMsg(null);
     setIsPlaying(false);
     try {
-      const resp = await fetch('/api/ai/generate-play', {
+      const resp = await fetch(apiUrl('/api/ai/generate-play'), {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
@@ -480,13 +481,12 @@ export const PlaybookStudio: React.FC<PlaybookStudioProps> = ({
             `Crie uma jogada ensaiada ofensiva para ${sportCfg.label} aproveitando a formação ${team.formation}.`,
         }),
       });
-      const data = (await resp.json()) as {
+      const data = await parseAiJsonResponse<{
         title?: string;
         category?: string;
         description?: string;
         frames?: PlayFrame[];
-        error?: string;
-      };
+      }>(resp, 'Falha ao gerar jogada com a IA.');
       if (!resp.ok || data.error || !data.frames?.length) {
         throw new Error(data.error || 'Falha ao gerar jogada com a IA.');
       }

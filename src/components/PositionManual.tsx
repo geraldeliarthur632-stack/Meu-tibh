@@ -32,6 +32,7 @@ import {
   TOTAL_UNITS,
   UNIT_METADATA,
 } from '../data/duolingoCurriculum';
+import { apiUrl, parseAiJsonResponse } from '../lib/apiUrl';
 import { db, handleFirestoreError, OperationType } from '../lib/firebase';
 import { MAX_VIDEO_CLIP_BYTES, uploadVideoClip } from '../lib/videoUpload';
 import {
@@ -271,7 +272,7 @@ export const PositionManual: React.FC<PositionManualProps> = ({
           ? currentMember.ovrRating
           : 0;
 
-      const res = await fetch('/api/ai/evaluate-manual-video', {
+      const res = await fetch(apiUrl('/api/ai/evaluate-manual-video'), {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
@@ -285,7 +286,10 @@ export const PositionManual: React.FC<PositionManualProps> = ({
         }),
       });
 
-      const data = (await res.json()) as AiManualVideoResponse & { error?: string };
+      const data = await parseAiJsonResponse<AiManualVideoResponse>(
+        res,
+        'Falha ao analisar vídeo da lição.'
+      );
       if (!res.ok || data.error) {
         throw new Error(data.error || 'Falha ao analisar vídeo da lição.');
       }

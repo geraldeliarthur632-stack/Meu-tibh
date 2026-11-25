@@ -1,8 +1,18 @@
 /* Service Worker extension for Meu Time PWA Push Notifications */
 
+function resolveScopedUrl(pathOrUrl) {
+  try {
+    return new URL(pathOrUrl || '', self.registration.scope).href;
+  } catch {
+    return pathOrUrl || '/';
+  }
+}
+
 self.addEventListener('notificationclick', (event) => {
   event.notification.close();
-  const targetUrl = (event.notification.data && event.notification.data.url) || '/';
+  const targetUrl = resolveScopedUrl(
+    (event.notification.data && event.notification.data.url) || ''
+  );
 
   event.waitUntil(
     self.clients.matchAll({ type: 'window', includeUncontrolled: true }).then((clientList) => {
@@ -29,15 +39,16 @@ self.addEventListener('notificationclick', (event) => {
 
 self.addEventListener('push', (event) => {
   if (!event.data) return;
+  const iconUrl = resolveScopedUrl('pwa-192x192.png');
   try {
     const payload = event.data.json();
     const title = payload.title || 'Meu Time';
     const options = {
       body: payload.body || 'Nova atualização no seu time!',
-      icon: '/pwa-192x192.png',
-      badge: '/pwa-192x192.png',
+      icon: iconUrl,
+      badge: iconUrl,
       tag: payload.tag || 'meu-time-push',
-      data: payload.data || { url: '/' },
+      data: payload.data || { url: resolveScopedUrl('') },
     };
     event.waitUntil(self.registration.showNotification(title, options));
   } catch {
@@ -45,8 +56,8 @@ self.addEventListener('push', (event) => {
     event.waitUntil(
       self.registration.showNotification('Meu Time', {
         body: text,
-        icon: '/pwa-192x192.png',
-        badge: '/pwa-192x192.png',
+        icon: iconUrl,
+        badge: iconUrl,
       })
     );
   }

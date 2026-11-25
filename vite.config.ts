@@ -5,8 +5,18 @@ import path from 'path';
 import { defineConfig } from 'vite';
 import { VitePWA } from 'vite-plugin-pwa';
 
+function normalizeBasePath(raw?: string): string {
+  const trimmed = (raw || '/').trim();
+  if (!trimmed || trimmed === '/') return '/';
+  const withLeading = trimmed.startsWith('/') ? trimmed : `/${trimmed}`;
+  return withLeading.endsWith('/') ? withLeading : `${withLeading}/`;
+}
+
 export default defineConfig(() => {
+  const basePath = normalizeBasePath(process.env.VITE_BASE_PATH);
+
   return {
+    base: basePath,
     plugins: [
       react(),
       tailwindcss(),
@@ -14,7 +24,7 @@ export default defineConfig(() => {
         registerType: 'autoUpdate',
         includeAssets: ['icon.svg', 'apple-touch-icon.png', 'pwa-192x192.png', 'pwa-512x512.png', 'sw-push.js'],
         manifest: {
-          id: '/',
+          id: basePath,
           name: 'Meu Time',
           short_name: 'Meu Time',
           description:
@@ -22,23 +32,23 @@ export default defineConfig(() => {
           theme_color: '#F6F8FB',
           background_color: '#F6F8FB',
           display: 'standalone',
-          start_url: '/',
-          scope: '/',
+          start_url: basePath,
+          scope: basePath,
           icons: [
             {
-              src: '/pwa-192x192.png',
+              src: `${basePath}pwa-192x192.png`,
               sizes: '192x192',
               type: 'image/png',
               purpose: 'any',
             },
             {
-              src: '/pwa-512x512.png',
+              src: `${basePath}pwa-512x512.png`,
               sizes: '512x512',
               type: 'image/png',
               purpose: 'any',
             },
             {
-              src: '/pwa-maskable-512x512.png',
+              src: `${basePath}pwa-maskable-512x512.png`,
               sizes: '512x512',
               type: 'image/png',
               purpose: 'maskable',
@@ -46,10 +56,10 @@ export default defineConfig(() => {
           ],
         },
         workbox: {
-          importScripts: ['/sw-push.js'],
+          importScripts: [`${basePath}sw-push.js`],
           maximumFileSizeToCacheInBytes: 5 * 1024 * 1024,
           globPatterns: ['**/*.{js,css,html,ico,png,svg,jpg,woff,woff2}'],
-          navigateFallback: '/index.html',
+          navigateFallback: `${basePath}index.html`,
           navigateFallbackDenylist: [/^\/api\//],
           runtimeCaching: [
             {
@@ -88,10 +98,9 @@ export default defineConfig(() => {
         },
       }),
       // Copies src/assets into dist/ so root-relative URLs like
-      // "/src/assets/images/..." (e.g. generate_image output) still resolve
-      // in production builds. Do not remove.
+      // "/src/assets/images/..." still resolve, and emits GitHub Pages 404.html + .nojekyll.
       {
-        name: 'copy-unbundled-src-assets',
+        name: 'copy-unbundled-src-assets-and-gh-pages-files',
         apply: 'build',
         closeBundle(error?: Error): void {
           if (error) {
@@ -102,6 +111,14 @@ export default defineConfig(() => {
           const distAssets = path.resolve(distDir, 'src/assets');
           if (fs.existsSync(distDir) && fs.existsSync(srcAssets)) {
             fs.cpSync(srcAssets, distAssets, { recursive: true, force: true });
+          }
+          const indexHtml = path.join(distDir, 'index.html');
+          const fallback404 = path.join(distDir, '404.html');
+          if (fs.existsSync(indexHtml)) {
+            fs.copyFileSync(indexHtml, fallback404);
+          }
+          if (fs.existsSync(distDir)) {
+            fs.writeFileSync(path.join(distDir, '.nojekyll'), '');
           }
         },
       },

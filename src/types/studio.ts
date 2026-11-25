@@ -270,12 +270,14 @@ export const FIELD_LIMITS = {
   MAX_JERSEY: 99,
 };
 
+const ASSET_BASE = import.meta.env.BASE_URL || '/';
+
 export const STUDIO_IMAGES = {
-  heroPitch: '/src/assets/images/light_studio_hero_1795628381131.jpg',
-  defaultCrest: '/src/assets/images/crest_badge_default_1795623937950.jpg',
-  futebol: '/src/assets/images/light_sport_futebol_1795628381143.jpg',
-  futsal: '/src/assets/images/light_sport_futsal_1795628381389.jpg',
-  court: '/src/assets/images/light_sport_court_1795628382204.jpg',
+  heroPitch: `${ASSET_BASE}src/assets/images/light_studio_hero_1795628381131.jpg`,
+  defaultCrest: `${ASSET_BASE}src/assets/images/crest_badge_default_1795623937950.jpg`,
+  futebol: `${ASSET_BASE}src/assets/images/light_sport_futebol_1795628381143.jpg`,
+  futsal: `${ASSET_BASE}src/assets/images/light_sport_futsal_1795628381389.jpg`,
+  court: `${ASSET_BASE}src/assets/images/light_sport_court_1795628382204.jpg`,
 };
 
 export const SPORTS_CONFIG: Record<SportId, SportConfig> = {

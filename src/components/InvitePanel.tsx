@@ -1,5 +1,6 @@
 import React, { useState } from 'react';
 import { Check, Copy, Link2, Share2, Users } from 'lucide-react';
+import { getAppBaseUrl } from '../lib/apiUrl';
 import { SPORTS_CONFIG, Team } from '../types/studio';
 import { TeamCrest } from './TeamCrest';
 
@@ -10,7 +11,7 @@ interface InvitePanelProps {
 
 export const InvitePanel: React.FC<InvitePanelProps> = ({ team, memberCount }) => {
   const [copiedType, setCopiedType] = useState<'code' | 'link' | null>(null);
-  const directJoinUrl = `${window.location.origin}/?join=${team.inviteCode}`;
+  const directJoinUrl = `${window.location.origin}${getAppBaseUrl()}?join=${team.inviteCode}`;
 
   const copyValue = async (value: string, type: 'code' | 'link') => {
     try {

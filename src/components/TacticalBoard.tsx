@@ -23,6 +23,7 @@ import {
 } from 'lucide-react';
 import { motion } from 'motion/react';
 import { getOvrTierInfo, OvrDrillSpec } from '../data/ovrDrills';
+import { apiUrl, parseAiJsonResponse } from '../lib/apiUrl';
 import { db, formatFriendlyFirebaseError, handleFirestoreError, OperationType } from '../lib/firebase';
 import { triggerFirstClickTip } from '../lib/firstClickCoach';
 import { createClientId } from '../lib/imageUtils';
@@ -655,7 +656,7 @@ export const TacticalBoard: React.FC<TacticalBoardProps> = ({
 
     try {
       const endpoint = mode === 'quick' ? '/api/ai/quick-tip' : '/api/ai/tactical-analysis';
-      const resp = await fetch(endpoint, {
+      const resp = await fetch(apiUrl(endpoint), {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
@@ -670,7 +671,10 @@ export const TacticalBoard: React.FC<TacticalBoardProps> = ({
               : 'Analise em profundidade os pontos fortes, vulnerabilidades, reservas e ajustes ideais para esta escalação.'),
         }),
       });
-      const data = (await resp.json()) as { text?: string; error?: string };
+      const data = await parseAiJsonResponse<{ text?: string }>(
+        resp,
+        'Falha ao consultar assistente tático.'
+      );
       if (!resp.ok || data.error) {
         throw new Error(data.error || 'Falha ao consultar assistente tático.');
       }
@@ -726,7 +730,7 @@ export const TacticalBoard: React.FC<TacticalBoardProps> = ({
     );
 
     try {
-      const res = await fetch('/api/ai/evaluate-over', {
+      const res = await fetch(apiUrl('/api/ai/evaluate-over'), {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
@@ -737,17 +741,10 @@ export const TacticalBoard: React.FC<TacticalBoardProps> = ({
         }),
       });
 
-      const rawText = await res.text();
-      let data: Partial<AiOvrEvalResponse> & { error?: string } = {};
-      try {
-        data = JSON.parse(rawText) as Partial<AiOvrEvalResponse> & { error?: string };
-      } catch {
-        throw new Error(
-          res.ok
-            ? 'Resposta inesperada do servidor de IA. Tente novamente.'
-            : `Falha no servidor de IA (HTTP ${res.status}). Tente novamente em instantes.`
-        );
-      }
+      const data = await parseAiJsonResponse<Partial<AiOvrEvalResponse>>(
+        res,
+        'Falha no servidor de IA'
+      );
 
       if (!res.ok || data.error || typeof data.ovr !== 'number') {
         throw new Error(data.error || 'Não foi possível concluir a avaliação em vídeo.');
@@ -803,7 +800,7 @@ export const TacticalBoard: React.FC<TacticalBoardProps> = ({
     setAiModeUsed(useOvrRecommendation ? 'ovr_lineup' : 'lineup');
     setAiLineupPreview(null);
     try {
-      const resp = await fetch('/api/ai/generate-lineup', {
+      const resp = await fetch(apiUrl('/api/ai/generate-lineup'), {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
@@ -828,7 +825,10 @@ export const TacticalBoard: React.FC<TacticalBoardProps> = ({
           stylePrompt: aiQuestion.trim(),
         }),
       });
-      const data = (await resp.json()) as AiLineupResponse & { error?: string };
+      const data = await parseAiJsonResponse<AiLineupResponse>(
+        resp,
+        'Falha ao gerar escalação com IA.'
+      );
       if (!resp.ok || data.error || !Array.isArray(data.assignments)) {
         throw new Error(data.error || 'Falha ao gerar escalação com IA.');
       }

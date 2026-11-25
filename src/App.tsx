@@ -36,6 +36,7 @@ import { TacticalBoard } from './components/TacticalBoard';
 import { TeamChat } from './components/TeamChat';
 import { TeamCrest } from './components/TeamCrest';
 import { useTeamNotifications } from './hooks/useTeamNotifications';
+import { appPath, stripBasePath } from './lib/apiUrl';
 import { auth, db, handleFirestoreError, OperationType } from './lib/firebase';
 import { triggerFirstClickTip } from './lib/firstClickCoach';
 import {
@@ -56,7 +57,8 @@ function extractInviteCodeFromUrl(): string | null {
   if (queryCode) {
     return queryCode.trim().toUpperCase().replace(/[^A-Z0-9]/g, '');
   }
-  const pathMatch = window.location.pathname.match(/^\/join\/([A-Za-z0-9]{6,10})\/?$/);
+  const cleanPath = stripBasePath(window.location.pathname);
+  const pathMatch = cleanPath.match(/^\/join\/([A-Za-z0-9]{6,10})\/?$/);
   if (pathMatch) {
     return pathMatch[1].toUpperCase();
   }
@@ -64,7 +66,8 @@ function extractInviteCodeFromUrl(): string | null {
 }
 
 function extractTeamIdFromUrl(): string | null {
-  const match = window.location.pathname.match(/^\/team\/([a-zA-Z0-9_-]+)\/?$/);
+  const cleanPath = stripBasePath(window.location.pathname);
+  const match = cleanPath.match(/^\/team\/([a-zA-Z0-9_-]+)\/?$/);
   return match ? match[1] : null;
 }
 
@@ -158,7 +161,7 @@ export default function App() {
           setPendingInviteCode(null);
           setActiveTeamId(invite.teamId);
           setShowOnboarding(false);
-          window.history.replaceState({}, '', `/team/${invite.teamId}`);
+          window.history.replaceState({}, '', appPath(`/team/${invite.teamId}`));
         } else {
           setShowOnboarding(true);
         }
@@ -182,7 +185,7 @@ export default function App() {
     if (!activeTeamId || !memberships.some((m) => m.teamId === activeTeamId)) {
       const firstId = memberships[0].teamId;
       setActiveTeamId(firstId);
-      window.history.replaceState({}, '', `/team/${firstId}`);
+      window.history.replaceState({}, '', appPath(`/team/${firstId}`));
     }
   }, [membershipsLoaded, memberships, activeTeamId, showOnboarding, pendingInviteCode]);
 
@@ -318,7 +321,7 @@ export default function App() {
             setActiveTeamId(teamId);
             setActiveTab('lineup');
             setShowTutorial(true);
-            window.history.replaceState({}, '', `/team/${teamId}`);
+            window.history.replaceState({}, '', appPath(`/team/${teamId}`));
           }}
           onCancel={
             memberships.length > 0
@@ -402,7 +405,7 @@ export default function App() {
                     onChange={(e) => {
                       const nextId = e.target.value;
                       setActiveTeamId(nextId);
-                      window.history.replaceState({}, '', `/team/${nextId}`);
+                      window.history.replaceState({}, '', appPath(`/team/${nextId}`));
                     }}
                     className="font-display max-w-[220px] truncate bg-transparent text-lg font-extrabold text-slate-900 focus:outline-none sm:max-w-xs cursor-pointer"
                   >
@@ -527,7 +530,7 @@ export default function App() {
                 onSendTestNotification={notifications.sendTestNotification}
                 onSelectTeam={(teamId) => {
                   setActiveTeamId(teamId);
-                  window.history.replaceState({}, '', `/team/${teamId}`);
+                  window.history.replaceState({}, '', appPath(`/team/${teamId}`));
                 }}
                 onOpenManual={() => setActiveTab('manual')}
                 onOpenOnboarding={() => setShowOnboarding(true)}
