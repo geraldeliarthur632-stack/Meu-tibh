@@ -1,0 +1,8 @@
+{
+  "name": "Remix Meu Time",
+  "description": "Estúdio tático e gestão de elenco em tempo real para Futebol, Futsal, Basquete e Vôlei com escalação, partidas ao vivo e chat do time.",
+  "requestFramePermissions": [],
+  "majorCapabilities": [
+    "MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"
+  ]
+}

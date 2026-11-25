@@ -1,0 +1,628 @@
+{
+  "entities": {
+    "UserProfile": {
+      "title": "UserProfile",
+      "description": "Perfil de usuário autenticado no Meu Time.",
+      "type": "object",
+      "properties": {
+        "uid": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 128,
+          "pattern": "^[a-zA-Z0-9_\\-]+$"
+        },
+        "displayName": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 80
+        },
+        "photoUrl": {
+          "type": "string",
+          "maxLength": 200000
+        },
+        "activeTeamId": {
+          "type": "string",
+          "maxLength": 128
+        },
+        "chatPushEnabled": {
+          "type": "boolean"
+        },
+        "matchPushEnabled": {
+          "type": "boolean"
+        },
+        "createdAt": {
+          "type": "string",
+          "format": "date-time"
+        },
+        "updatedAt": {
+          "type": "string",
+          "format": "date-time"
+        }
+      },
+      "required": ["uid", "displayName", "createdAt", "updatedAt"]
+    },
+    "UserTeamMembership": {
+      "title": "UserTeamMembership",
+      "description": "Índice de times dos quais o usuário participa.",
+      "type": "object",
+      "properties": {
+        "teamId": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 128,
+          "pattern": "^[a-zA-Z0-9_\\-]+$"
+        },
+        "teamName": {
+          "type": "string",
+          "minLength": 2,
+          "maxLength": 60
+        },
+        "sport": {
+          "type": "string",
+          "enum": ["futebol", "futsal", "basquete", "volei"]
+        },
+        "photoUrl": {
+          "type": "string",
+          "maxLength": 200000
+        },
+        "role": {
+          "type": "string",
+          "enum": ["owner", "member"]
+        },
+        "inviteCode": {
+          "type": "string",
+          "minLength": 6,
+          "maxLength": 10,
+          "pattern": "^[A-Z0-9]+$"
+        },
+        "joinedAt": {
+          "type": "string",
+          "format": "date-time"
+        },
+        "updatedAt": {
+          "type": "string",
+          "format": "date-time"
+        }
+      },
+      "required": ["teamId", "teamName", "sport", "role", "inviteCode", "joinedAt", "updatedAt"]
+    },
+    "Team": {
+      "title": "Team",
+      "description": "Dados principais de um time no Meu Time.",
+      "type": "object",
+      "properties": {
+        "id": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 128,
+          "pattern": "^[a-zA-Z0-9_\\-]+$"
+        },
+        "name": {
+          "type": "string",
+          "minLength": 2,
+          "maxLength": 60
+        },
+        "sport": {
+          "type": "string",
+          "enum": ["futebol", "futsal", "basquete", "volei"]
+        },
+        "photoUrl": {
+          "type": "string",
+          "maxLength": 200000
+        },
+        "ownerId": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 128,
+          "pattern": "^[a-zA-Z0-9_\\-]+$"
+        },
+        "inviteCode": {
+          "type": "string",
+          "minLength": 6,
+          "maxLength": 10,
+          "pattern": "^[A-Z0-9]+$"
+        },
+        "formation": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 32
+        },
+        "captainMemberId": {
+          "type": "string",
+          "maxLength": 128
+        },
+        "createdAt": {
+          "type": "string",
+          "format": "date-time"
+        },
+        "updatedAt": {
+          "type": "string",
+          "format": "date-time"
+        }
+      },
+      "required": ["id", "name", "sport", "ownerId", "inviteCode", "formation", "createdAt", "updatedAt"]
+    },
+    "TeamMember": {
+      "title": "TeamMember",
+      "description": "Jogador ou membro escalado no time com número de camisa, posição e coordenadas táticas.",
+      "type": "object",
+      "properties": {
+        "id": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 128,
+          "pattern": "^[a-zA-Z0-9_\\-]+$"
+        },
+        "teamId": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 128,
+          "pattern": "^[a-zA-Z0-9_\\-]+$"
+        },
+        "userId": {
+          "type": "string",
+          "maxLength": 128
+        },
+        "name": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 80
+        },
+        "jerseyNumber": {
+          "type": "integer",
+          "description": "0 para comissão técnica (Técnico, Treinador de Goleiro, Auxiliar); 1 a 99 para atletas."
+        },
+        "position": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 40
+        },
+        "role": {
+          "type": "string",
+          "enum": ["owner", "member", "guest"]
+        },
+        "isStarter": {
+          "type": "boolean"
+        },
+        "posX": {
+          "type": "number"
+        },
+        "posY": {
+          "type": "number"
+        },
+        "inviteCode": {
+          "type": "string",
+          "maxLength": 10
+        },
+        "ovrRating": {
+          "type": "integer",
+          "description": "Nota geral (OVR) avaliada por IA em vídeo (1 a 99, ou 0 se não avaliado)."
+        },
+        "ovrStatus": {
+          "type": "string",
+          "enum": ["none", "analyzing", "ready", "error"]
+        },
+        "ovrReadyAtMs": {
+          "type": "integer",
+          "description": "Timestamp em ms para liberação do resultado de análise (1-5 min)."
+        },
+        "ovrPendingRating": {
+          "type": "integer",
+          "description": "OVR calculado pela IA aguardando liberação do cronômetro."
+        },
+        "ovrSummary": {
+          "type": "string",
+          "maxLength": 600
+        },
+        "ovrStats": {
+          "type": "object",
+          "description": "Mapa de notas por atributo técnico avaliado pela IA."
+        },
+        "ovrExercises": {
+          "type": "array",
+          "description": "Lista de exercícios recomendados pela IA para melhoria."
+        },
+        "ovrUpdatedAtMs": {
+          "type": "integer"
+        },
+        "createdAt": {
+          "type": "string",
+          "format": "date-time"
+        },
+        "updatedAt": {
+          "type": "string",
+          "format": "date-time"
+        }
+      },
+      "required": ["id", "teamId", "userId", "name", "jerseyNumber", "position", "role", "isStarter", "posX", "posY", "createdAt", "updatedAt"]
+    },
+    "TeamMessage": {
+      "title": "TeamMessage",
+      "description": "Mensagem do chat em tempo real do time.",
+      "type": "object",
+      "properties": {
+        "id": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 128,
+          "pattern": "^[a-zA-Z0-9_\\-]+$"
+        },
+        "teamId": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 128,
+          "pattern": "^[a-zA-Z0-9_\\-]+$"
+        },
+        "senderId": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 128,
+          "pattern": "^[a-zA-Z0-9_\\-]+$"
+        },
+        "senderName": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 80
+        },
+        "senderJersey": {
+          "type": "integer"
+        },
+        "senderPosition": {
+          "type": "string",
+          "maxLength": 40
+        },
+        "text": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 1000
+        },
+        "createdAt": {
+          "type": "string",
+          "format": "date-time"
+        }
+      },
+      "required": ["id", "teamId", "senderId", "senderName", "senderJersey", "text", "createdAt"]
+    },
+    "Match": {
+      "title": "Match",
+      "description": "Partida do time com suporte a cronômetro ao vivo, acréscimos e placar.",
+      "type": "object",
+      "properties": {
+        "id": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 128,
+          "pattern": "^[a-zA-Z0-9_\\-]+$"
+        },
+        "teamId": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 128,
+          "pattern": "^[a-zA-Z0-9_\\-]+$"
+        },
+        "opponent": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 80
+        },
+        "location": {
+          "type": "string",
+          "maxLength": 100
+        },
+        "status": {
+          "type": "string",
+          "enum": ["scheduled", "live", "finished"]
+        },
+        "teamScore": {
+          "type": "integer"
+        },
+        "opponentScore": {
+          "type": "integer"
+        },
+        "halfDurationMinutes": {
+          "type": "integer"
+        },
+        "extraMinutes": {
+          "type": "integer"
+        },
+        "elapsedSeconds": {
+          "type": "integer"
+        },
+        "isClockRunning": {
+          "type": "boolean"
+        },
+        "lastStartedAtMs": {
+          "type": "integer"
+        },
+        "createdBy": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 128,
+          "pattern": "^[a-zA-Z0-9_\\-]+$"
+        },
+        "createdAt": {
+          "type": "string",
+          "format": "date-time"
+        },
+        "updatedAt": {
+          "type": "string",
+          "format": "date-time"
+        }
+      },
+      "required": ["id", "teamId", "opponent", "status", "teamScore", "opponentScore", "halfDurationMinutes", "extraMinutes", "elapsedSeconds", "isClockRunning", "lastStartedAtMs", "createdBy", "createdAt", "updatedAt"]
+    },
+    "MatchEvent": {
+      "title": "MatchEvent",
+      "description": "Evento registrado na partida (gol, cartão amarelo, cartão vermelho, falta).",
+      "type": "object",
+      "properties": {
+        "id": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 128,
+          "pattern": "^[a-zA-Z0-9_\\-]+$"
+        },
+        "teamId": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 128,
+          "pattern": "^[a-zA-Z0-9_\\-]+$"
+        },
+        "matchId": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 128,
+          "pattern": "^[a-zA-Z0-9_\\-]+$"
+        },
+        "type": {
+          "type": "string",
+          "enum": ["goal", "opponent_goal", "yellow_card", "red_card", "foul"]
+        },
+        "playerId": {
+          "type": "string",
+          "maxLength": 128
+        },
+        "playerName": {
+          "type": "string",
+          "maxLength": 80
+        },
+        "playerJersey": {
+          "type": "integer"
+        },
+        "minute": {
+          "type": "integer"
+        },
+        "extraMinute": {
+          "type": "integer"
+        },
+        "note": {
+          "type": "string",
+          "maxLength": 160
+        },
+        "createdBy": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 128,
+          "pattern": "^[a-zA-Z0-9_\\-]+$"
+        },
+        "createdAt": {
+          "type": "string",
+          "format": "date-time"
+        }
+      },
+      "required": ["id", "teamId", "matchId", "type", "playerName", "playerJersey", "minute", "extraMinute", "createdBy", "createdAt"]
+    },
+    "InviteLookup": {
+      "title": "InviteLookup",
+      "description": "Registro de código de convite direto do time com mapa de camisas ocupadas.",
+      "type": "object",
+      "properties": {
+        "code": {
+          "type": "string",
+          "minLength": 6,
+          "maxLength": 10,
+          "pattern": "^[A-Z0-9]+$"
+        },
+        "teamId": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 128,
+          "pattern": "^[a-zA-Z0-9_\\-]+$"
+        },
+        "teamName": {
+          "type": "string",
+          "minLength": 2,
+          "maxLength": 60
+        },
+        "sport": {
+          "type": "string",
+          "enum": ["futebol", "futsal", "basquete", "volei"]
+        },
+        "photoUrl": {
+          "type": "string",
+          "maxLength": 200000
+        },
+        "ownerId": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 128,
+          "pattern": "^[a-zA-Z0-9_\\-]+$"
+        },
+        "takenJerseys": {
+          "type": "object"
+        },
+        "createdAt": {
+          "type": "string",
+          "format": "date-time"
+        },
+        "updatedAt": {
+          "type": "string",
+          "format": "date-time"
+        }
+      },
+      "required": ["code", "teamId", "teamName", "sport", "ownerId", "takenJerseys", "createdAt", "updatedAt"]
+    },
+    "ManualProgress": {
+      "title": "ManualProgress",
+      "description": "Progresso do usuário nas 460+ lições estilo Duolingo por esporte e posição.",
+      "type": "object",
+      "properties": {
+        "trackId": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 128,
+          "pattern": "^[a-zA-Z0-9_\\-]+$"
+        },
+        "sport": {
+          "type": "string",
+          "enum": ["futebol", "futsal", "basquete", "volei"]
+        },
+        "position": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 40
+        },
+        "xp": {
+          "type": "integer"
+        },
+        "streak": {
+          "type": "integer"
+        },
+        "completedCount": {
+          "type": "integer"
+        },
+        "highestLesson": {
+          "type": "integer"
+        },
+        "completedLessons": {
+          "type": "object"
+        },
+        "lessonAssessments": {
+          "type": "object",
+          "description": "Registro por lição da prova prática em vídeo ou autoavaliação (sim, mais_ou_menos, nao)."
+        },
+        "recommendedDrills": {
+          "type": "array",
+          "description": "Exercícios recomendados a partir dos treinos do Manual."
+        },
+        "updatedAt": {
+          "type": "string",
+          "format": "date-time"
+        }
+      },
+      "required": ["trackId", "sport", "position", "xp", "streak", "completedCount", "highestLesson", "completedLessons", "updatedAt"]
+    },
+    "TeamPlay": {
+      "title": "TeamPlay",
+      "description": "Jogada ensaiada com passos animados, movimentação da bola, setas táticas e autores da comissão ou jogadores.",
+      "type": "object",
+      "properties": {
+        "id": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 128,
+          "pattern": "^[a-zA-Z0-9_\\-]+$"
+        },
+        "teamId": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 128,
+          "pattern": "^[a-zA-Z0-9_\\-]+$"
+        },
+        "title": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 80
+        },
+        "category": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 40
+        },
+        "description": {
+          "type": "string",
+          "maxLength": 500
+        },
+        "sport": {
+          "type": "string",
+          "enum": ["futebol", "futsal", "basquete", "volei"]
+        },
+        "frameCount": {
+          "type": "integer"
+        },
+        "framesJson": {
+          "type": "string",
+          "minLength": 2,
+          "maxLength": 65000
+        },
+        "createdBy": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 128,
+          "pattern": "^[a-zA-Z0-9_\\-]+$"
+        },
+        "createdByName": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 80
+        },
+        "createdByRole": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 40
+        },
+        "createdAt": {
+          "type": "string",
+          "format": "date-time"
+        },
+        "updatedAt": {
+          "type": "string",
+          "format": "date-time"
+        }
+      },
+      "required": ["id", "teamId", "title", "category", "sport", "frameCount", "framesJson", "createdBy", "createdByName", "createdByRole", "createdAt", "updatedAt"]
+    }
+  },
+  "firestore": {
+    "/users/{userId}": {
+      "schema": { "$ref": "#/entities/UserProfile" },
+      "description": "Perfil privado do usuário autenticado (sem PII de contato)."
+    },
+    "/users/{userId}/teamMemberships/{teamId}": {
+      "schema": { "$ref": "#/entities/UserTeamMembership" },
+      "description": "Lista de times em que o usuário é membro."
+    },
+    "/users/{userId}/manualProgress/{trackId}": {
+      "schema": { "$ref": "#/entities/ManualProgress" },
+      "description": "Progresso de lições no Manual Duolingo por trilha (esporte + posição)."
+    },
+    "/teams/{teamId}": {
+      "schema": { "$ref": "#/entities/Team" },
+      "description": "Documento principal do time."
+    },
+    "/teams/{teamId}/members/{memberId}": {
+      "schema": { "$ref": "#/entities/TeamMember" },
+      "description": "Jogadores e membros do time."
+    },
+    "/teams/{teamId}/messages/{messageId}": {
+      "schema": { "$ref": "#/entities/TeamMessage" },
+      "description": "Mensagens do chat em tempo real do time."
+    },
+    "/teams/{teamId}/matches/{matchId}": {
+      "schema": { "$ref": "#/entities/Match" },
+      "description": "Partidas do time com cronômetro ao vivo e acréscimos."
+    },
+    "/teams/{teamId}/matches/{matchId}/events/{eventId}": {
+      "schema": { "$ref": "#/entities/MatchEvent" },
+      "description": "Eventos de partida (gols, cartões amarelos, vermelhos e faltas)."
+    },
+    "/teams/{teamId}/plays/{playId}": {
+      "schema": { "$ref": "#/entities/TeamPlay" },
+      "description": "Jogadas ensaiadas e animadas salvas pela comissão técnica e jogadores."
+    },
+    "/invites/{inviteCode}": {
+      "schema": { "$ref": "#/entities/InviteLookup" },
+      "description": "Acesso direto por código de convite com detecção de camisas ocupadas."
+    }
+  }
+}

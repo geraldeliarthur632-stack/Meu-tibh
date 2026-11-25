@@ -1,0 +1,487 @@
+rules_version = '2';
+service cloud.firestore {
+  match /databases/{database}/documents {
+    // 1. Global Default-Deny Catch-All
+    match /{document=**} {
+      allow read, write: if false;
+    }
+
+    // 2. Hardened Global Primitives
+    function isSignedIn() {
+      return request.auth != null;
+    }
+
+    function isEmailVerified() {
+      return isSignedIn() && request.auth.token.email_verified == true;
+    }
+
+    function isValidId(id) {
+      return id is string && id.size() >= 1 && id.size() <= 128 && id.matches('^[a-zA-Z0-9_\\-]+$');
+    }
+
+    function isValidInviteCode(code) {
+      return code is string && code.size() >= 6 && code.size() <= 10 && code.matches('^[A-Z0-9]+$');
+    }
+
+    function incoming() {
+      return request.resource.data;
+    }
+
+    function existing() {
+      return resource.data;
+    }
+
+    function isOwner(userId) {
+      return isSignedIn() && request.auth.uid == userId;
+    }
+
+    function isTeamMember(teamId) {
+      return isSignedIn() && exists(/databases/$(database)/documents/teams/$(teamId)/members/$(request.auth.uid));
+    }
+
+    function isTeamOwner(teamId) {
+      return isSignedIn() && get(/databases/$(database)/documents/teams/$(teamId)).data.ownerId == request.auth.uid;
+    }
+
+    // 3. Entity Validation Blueprints
+    function isValidUserProfile(data) {
+      return data.keys().hasAll(['uid', 'displayName', 'createdAt', 'updatedAt'])
+        && data.keys().hasOnly(['uid', 'displayName', 'photoUrl', 'activeTeamId', 'chatPushEnabled', 'matchPushEnabled', 'createdAt', 'updatedAt'])
+        && isValidId(data.uid)
+        && data.uid == request.auth.uid
+        && data.displayName is string && data.displayName.size() >= 1 && data.displayName.size() <= 80
+        && (!('photoUrl' in data) || (data.photoUrl is string && data.photoUrl.size() <= 200000))
+        && (!('activeTeamId' in data) || (data.activeTeamId is string && data.activeTeamId.size() <= 128))
+        && (!('chatPushEnabled' in data) || data.chatPushEnabled is bool)
+        && (!('matchPushEnabled' in data) || data.matchPushEnabled is bool)
+        && data.createdAt is timestamp
+        && data.updatedAt is timestamp;
+    }
+
+    function isValidManualProgress(data, trackId) {
+      return data.keys().hasAll(['trackId', 'sport', 'position', 'xp', 'streak', 'completedCount', 'highestLesson', 'completedLessons', 'updatedAt'])
+        && data.keys().hasOnly(['trackId', 'sport', 'position', 'xp', 'streak', 'completedCount', 'highestLesson', 'completedLessons', 'lessonAssessments', 'recommendedDrills', 'updatedAt'])
+        && isValidId(data.trackId)
+        && data.trackId == trackId
+        && data.sport in ['futebol', 'futsal', 'basquete', 'volei']
+        && data.position is string && data.position.size() >= 1 && data.position.size() <= 40
+        && data.xp is int && data.xp >= 0 && data.xp <= 1000000
+        && data.streak is int && data.streak >= 0 && data.streak <= 10000
+        && data.completedCount is int && data.completedCount >= 0 && data.completedCount <= 1000
+        && data.highestLesson is int && data.highestLesson >= 0 && data.highestLesson <= 1000
+        && data.completedLessons is map && data.completedLessons.size() <= 600
+        && (!('lessonAssessments' in data) || (data.lessonAssessments is map && data.lessonAssessments.size() <= 600))
+        && (!('recommendedDrills' in data) || (data.recommendedDrills is list && data.recommendedDrills.size() <= 10 && (data.recommendedDrills.size() == 0 || (data.recommendedDrills[0] is string && data.recommendedDrills[0].size() <= 220))))
+        && data.updatedAt is timestamp;
+    }
+
+    function isValidUserTeamMembership(data) {
+      return data.keys().hasAll(['teamId', 'teamName', 'sport', 'role', 'inviteCode', 'joinedAt', 'updatedAt'])
+        && data.keys().hasOnly(['teamId', 'teamName', 'sport', 'photoUrl', 'role', 'inviteCode', 'joinedAt', 'updatedAt'])
+        && isValidId(data.teamId)
+        && data.teamName is string && data.teamName.size() >= 2 && data.teamName.size() <= 60
+        && data.sport in ['futebol', 'futsal', 'basquete', 'volei']
+        && (!('photoUrl' in data) || (data.photoUrl is string && data.photoUrl.size() <= 200000))
+        && data.role in ['owner', 'member']
+        && isValidInviteCode(data.inviteCode)
+        && data.joinedAt is timestamp
+        && data.updatedAt is timestamp;
+    }
+
+    function isValidTeam(data) {
+      return data.keys().hasAll(['id', 'name', 'sport', 'ownerId', 'inviteCode', 'formation', 'createdAt', 'updatedAt'])
+        && data.keys().hasOnly(['id', 'name', 'sport', 'photoUrl', 'ownerId', 'inviteCode', 'formation', 'captainMemberId', 'createdAt', 'updatedAt'])
+        && isValidId(data.id)
+        && data.name is string && data.name.size() >= 2 && data.name.size() <= 60
+        && data.sport in ['futebol', 'futsal', 'basquete', 'volei']
+        && (!('photoUrl' in data) || (data.photoUrl is string && data.photoUrl.size() <= 200000))
+        && isValidId(data.ownerId)
+        && isValidInviteCode(data.inviteCode)
+        && data.formation is string && data.formation.size() >= 1 && data.formation.size() <= 32
+        && (!('captainMemberId' in data) || (data.captainMemberId is string && data.captainMemberId.size() <= 128))
+        && data.createdAt is timestamp
+        && data.updatedAt is timestamp;
+    }
+
+    function isValidTeamMember(data, teamId) {
+      return data.keys().hasAll(['id', 'teamId', 'userId', 'name', 'jerseyNumber', 'position', 'role', 'isStarter', 'posX', 'posY', 'createdAt', 'updatedAt'])
+        && data.keys().hasOnly([
+          'id', 'teamId', 'userId', 'name', 'jerseyNumber', 'position', 'role', 'isStarter', 'posX', 'posY', 'inviteCode',
+          'ovrRating', 'ovrStatus', 'ovrReadyAtMs', 'ovrPendingRating', 'ovrSummary', 'ovrStats', 'ovrExercises', 'ovrUpdatedAtMs',
+          'createdAt', 'updatedAt'
+        ])
+        && isValidId(data.id)
+        && data.teamId == teamId
+        && data.userId is string && data.userId.size() <= 128
+        && data.name is string && data.name.size() >= 1 && data.name.size() <= 80
+        && data.jerseyNumber is int && data.jerseyNumber >= 0 && data.jerseyNumber <= 99
+        && data.position is string && data.position.size() >= 1 && data.position.size() <= 40
+        && data.role in ['owner', 'member', 'guest']
+        && data.isStarter is bool
+        && (data.posX is int || data.posX is float) && data.posX >= 0 && data.posX <= 100
+        && (data.posY is int || data.posY is float) && data.posY >= 0 && data.posY <= 100
+        && (!('inviteCode' in data) || (data.inviteCode is string && data.inviteCode.size() <= 10))
+        && (!('ovrRating' in data) || (data.ovrRating is int && data.ovrRating >= 0 && data.ovrRating <= 99))
+        && (!('ovrStatus' in data) || data.ovrStatus in ['none', 'analyzing', 'ready', 'error'])
+        && (!('ovrReadyAtMs' in data) || (data.ovrReadyAtMs is int && data.ovrReadyAtMs >= 0))
+        && (!('ovrPendingRating' in data) || (data.ovrPendingRating is int && data.ovrPendingRating >= 0 && data.ovrPendingRating <= 99))
+        && (!('ovrSummary' in data) || (data.ovrSummary is string && data.ovrSummary.size() <= 600))
+        && (!('ovrStats' in data) || (data.ovrStats is map && data.ovrStats.size() <= 10))
+        && (!('ovrExercises' in data) || (data.ovrExercises is list && data.ovrExercises.size() <= 8 && (data.ovrExercises.size() == 0 || (data.ovrExercises[0] is string && data.ovrExercises[0].size() <= 220))))
+        && (!('ovrUpdatedAtMs' in data) || (data.ovrUpdatedAtMs is int && data.ovrUpdatedAtMs >= 0))
+        && data.createdAt is timestamp
+        && data.updatedAt is timestamp;
+    }
+
+    function isValidMessage(data, teamId) {
+      return data.keys().hasAll(['id', 'teamId', 'senderId', 'senderName', 'senderJersey', 'text', 'createdAt'])
+        && data.keys().hasOnly(['id', 'teamId', 'senderId', 'senderName', 'senderJersey', 'senderPosition', 'text', 'createdAt'])
+        && isValidId(data.id)
+        && data.teamId == teamId
+        && isValidId(data.senderId)
+        && data.senderId == request.auth.uid
+        && data.senderName is string && data.senderName.size() >= 1 && data.senderName.size() <= 80
+        && data.senderJersey is int && data.senderJersey >= 0 && data.senderJersey <= 99
+        && (!('senderPosition' in data) || (data.senderPosition is string && data.senderPosition.size() <= 40))
+        && data.text is string && data.text.size() >= 1 && data.text.size() <= 1000
+        && data.createdAt is timestamp;
+    }
+
+    function isValidMatch(data, teamId) {
+      return data.keys().hasAll(['id', 'teamId', 'opponent', 'status', 'teamScore', 'opponentScore', 'halfDurationMinutes', 'extraMinutes', 'elapsedSeconds', 'isClockRunning', 'lastStartedAtMs', 'createdBy', 'createdAt', 'updatedAt'])
+        && data.keys().hasOnly(['id', 'teamId', 'opponent', 'location', 'status', 'teamScore', 'opponentScore', 'halfDurationMinutes', 'extraMinutes', 'elapsedSeconds', 'isClockRunning', 'lastStartedAtMs', 'createdBy', 'createdAt', 'updatedAt'])
+        && isValidId(data.id)
+        && data.teamId == teamId
+        && data.opponent is string && data.opponent.size() >= 1 && data.opponent.size() <= 80
+        && (!('location' in data) || (data.location is string && data.location.size() <= 100))
+        && data.status in ['scheduled', 'live', 'finished']
+        && data.teamScore is int && data.teamScore >= 0 && data.teamScore <= 999
+        && data.opponentScore is int && data.opponentScore >= 0 && data.opponentScore <= 999
+        && data.halfDurationMinutes is int && data.halfDurationMinutes >= 1 && data.halfDurationMinutes <= 120
+        && data.extraMinutes is int && data.extraMinutes >= 0 && data.extraMinutes <= 60
+        && data.elapsedSeconds is int && data.elapsedSeconds >= 0 && data.elapsedSeconds <= 36000
+        && data.isClockRunning is bool
+        && data.lastStartedAtMs is int && data.lastStartedAtMs >= 0
+        && isValidId(data.createdBy)
+        && data.createdAt is timestamp
+        && data.updatedAt is timestamp;
+    }
+
+    function isValidMatchEvent(data, teamId, matchId) {
+      return data.keys().hasAll(['id', 'teamId', 'matchId', 'type', 'playerName', 'playerJersey', 'minute', 'extraMinute', 'createdBy', 'createdAt'])
+        && data.keys().hasOnly(['id', 'teamId', 'matchId', 'type', 'playerId', 'playerName', 'playerJersey', 'minute', 'extraMinute', 'note', 'createdBy', 'createdAt'])
+        && isValidId(data.id)
+        && data.teamId == teamId
+        && data.matchId == matchId
+        && data.type in ['goal', 'opponent_goal', 'yellow_card', 'red_card', 'foul']
+        && (!('playerId' in data) || (data.playerId is string && data.playerId.size() <= 128))
+        && data.playerName is string && data.playerName.size() >= 1 && data.playerName.size() <= 80
+        && data.playerJersey is int && data.playerJersey >= 0 && data.playerJersey <= 99
+        && data.minute is int && data.minute >= 0 && data.minute <= 300
+        && data.extraMinute is int && data.extraMinute >= 0 && data.extraMinute <= 60
+        && (!('note' in data) || (data.note is string && data.note.size() <= 160))
+        && isValidId(data.createdBy)
+        && data.createdBy == request.auth.uid
+        && data.createdAt is timestamp;
+    }
+
+    function isValidInviteLookup(data, inviteCode) {
+      return data.keys().hasAll(['code', 'teamId', 'teamName', 'sport', 'ownerId', 'takenJerseys', 'createdAt', 'updatedAt'])
+        && data.keys().hasOnly(['code', 'teamId', 'teamName', 'sport', 'photoUrl', 'ownerId', 'takenJerseys', 'createdAt', 'updatedAt'])
+        && data.code == inviteCode
+        && isValidInviteCode(data.code)
+        && isValidId(data.teamId)
+        && data.teamName is string && data.teamName.size() >= 2 && data.teamName.size() <= 60
+        && data.sport in ['futebol', 'futsal', 'basquete', 'volei']
+        && (!('photoUrl' in data) || (data.photoUrl is string && data.photoUrl.size() <= 200000))
+        && isValidId(data.ownerId)
+        && data.takenJerseys is map
+        && data.takenJerseys.size() <= 60
+        && data.createdAt is timestamp
+        && data.updatedAt is timestamp;
+    }
+
+    function isValidTeamPlay(data, teamId) {
+      return data.keys().hasAll(['id', 'teamId', 'title', 'category', 'sport', 'frameCount', 'framesJson', 'createdBy', 'createdByName', 'createdByRole', 'createdAt', 'updatedAt'])
+        && data.keys().hasOnly(['id', 'teamId', 'title', 'category', 'description', 'sport', 'frameCount', 'framesJson', 'createdBy', 'createdByName', 'createdByRole', 'createdAt', 'updatedAt'])
+        && isValidId(data.id)
+        && data.teamId == teamId
+        && data.title is string && data.title.size() >= 1 && data.title.size() <= 80
+        && data.category is string && data.category.size() >= 1 && data.category.size() <= 40
+        && (!('description' in data) || (data.description is string && data.description.size() <= 500))
+        && data.sport in ['futebol', 'futsal', 'basquete', 'volei']
+        && data.frameCount is int && data.frameCount >= 1 && data.frameCount <= 12
+        && data.framesJson is string && data.framesJson.size() >= 2 && data.framesJson.size() <= 65000
+        && isValidId(data.createdBy)
+        && data.createdByName is string && data.createdByName.size() >= 1 && data.createdByName.size() <= 80
+        && data.createdByRole is string && data.createdByRole.size() >= 1 && data.createdByRole.size() <= 40
+        && data.createdAt is timestamp
+        && data.updatedAt is timestamp;
+    }
+
+    // 4. Collection Rules
+
+    // Users (Private Profile, Zero PII stored)
+    match /users/{userId} {
+      allow get: if isValidId(userId) && isOwner(userId);
+      allow create: if isValidId(userId)
+        && isEmailVerified()
+        && isOwner(userId)
+        && isValidUserProfile(incoming())
+        && incoming().createdAt == request.time
+        && incoming().updatedAt == request.time;
+      allow update: if isValidId(userId)
+        && isEmailVerified()
+        && isOwner(userId)
+        && isValidUserProfile(incoming())
+        && incoming().uid == existing().uid
+        && incoming().createdAt == existing().createdAt
+        && incoming().updatedAt == request.time
+        && incoming().diff(existing()).affectedKeys().hasOnly(['displayName', 'photoUrl', 'activeTeamId', 'chatPushEnabled', 'matchPushEnabled', 'updatedAt']);
+
+      match /teamMemberships/{teamId} {
+        allow list: if isOwner(userId);
+        allow get: if isValidId(teamId) && isOwner(userId);
+        allow create: if isValidId(teamId)
+          && isEmailVerified()
+          && isOwner(userId)
+          && isValidUserTeamMembership(incoming())
+          && incoming().teamId == teamId
+          && incoming().joinedAt == request.time
+          && incoming().updatedAt == request.time
+          && (
+            (incoming().role == 'owner' && getAfter(/databases/$(database)/documents/teams/$(teamId)).data.ownerId == request.auth.uid)
+            || (incoming().role == 'member' && exists(/databases/$(database)/documents/invites/$(incoming().inviteCode)) && get(/databases/$(database)/documents/invites/$(incoming().inviteCode)).data.teamId == teamId)
+          );
+        allow update: if isValidId(teamId)
+          && isEmailVerified()
+          && isOwner(userId)
+          && isValidUserTeamMembership(incoming())
+          && incoming().teamId == existing().teamId
+          && incoming().role == existing().role
+          && incoming().joinedAt == existing().joinedAt
+          && incoming().updatedAt == request.time
+          && incoming().diff(existing()).affectedKeys().hasOnly(['teamName', 'photoUrl', 'updatedAt']);
+        allow delete: if isValidId(teamId) && isEmailVerified() && isOwner(userId);
+      }
+
+      match /manualProgress/{trackId} {
+        allow list: if isOwner(userId);
+        allow get: if isValidId(trackId) && isOwner(userId);
+        allow create: if isValidId(trackId)
+          && isEmailVerified()
+          && isOwner(userId)
+          && isValidManualProgress(incoming(), trackId)
+          && incoming().updatedAt == request.time;
+        allow update: if isValidId(trackId)
+          && isEmailVerified()
+          && isOwner(userId)
+          && isValidManualProgress(incoming(), trackId)
+          && incoming().trackId == existing().trackId
+          && incoming().updatedAt == request.time
+          && incoming().diff(existing()).affectedKeys().hasOnly(['sport', 'position', 'xp', 'streak', 'completedCount', 'highestLesson', 'completedLessons', 'lessonAssessments', 'recommendedDrills', 'updatedAt']);
+      }
+    }
+
+    // Invites Lookup (Single get by exact code only, never list)
+    match /invites/{inviteCode} {
+      allow get: if isValidInviteCode(inviteCode) && isSignedIn();
+      allow create: if isValidInviteCode(inviteCode)
+        && isEmailVerified()
+        && isValidInviteLookup(incoming(), inviteCode)
+        && incoming().ownerId == request.auth.uid
+        && incoming().createdAt == request.time
+        && incoming().updatedAt == request.time
+        && getAfter(/databases/$(database)/documents/teams/$(incoming().teamId)).data.ownerId == request.auth.uid;
+      allow update: if isValidInviteCode(inviteCode)
+        && isEmailVerified()
+        && isValidInviteLookup(incoming(), inviteCode)
+        && incoming().code == existing().code
+        && incoming().teamId == existing().teamId
+        && incoming().ownerId == existing().ownerId
+        && incoming().createdAt == existing().createdAt
+        && incoming().updatedAt == request.time
+        && (
+          (existing().ownerId == request.auth.uid && incoming().diff(existing()).affectedKeys().hasOnly(['teamName', 'photoUrl', 'takenJerseys', 'updatedAt']))
+          || (isTeamMember(existing().teamId) && incoming().diff(existing()).affectedKeys().hasOnly(['takenJerseys', 'updatedAt']))
+          || (existsAfter(/databases/$(database)/documents/teams/$(existing().teamId)/members/$(request.auth.uid)) && incoming().diff(existing()).affectedKeys().hasOnly(['takenJerseys', 'updatedAt']))
+        );
+      allow delete: if isValidInviteCode(inviteCode)
+        && isEmailVerified()
+        && existing().ownerId == request.auth.uid;
+    }
+
+    // Teams & Subcollections (Master Gate)
+    match /teams/{teamId} {
+      allow get: if isValidId(teamId) && isTeamMember(teamId);
+      allow create: if isValidId(teamId)
+        && isEmailVerified()
+        && isValidTeam(incoming())
+        && incoming().id == teamId
+        && incoming().ownerId == request.auth.uid
+        && incoming().createdAt == request.time
+        && incoming().updatedAt == request.time;
+      allow update: if isValidId(teamId)
+        && isEmailVerified()
+        && isValidTeam(incoming())
+        && incoming().id == existing().id
+        && incoming().ownerId == existing().ownerId
+        && incoming().sport == existing().sport
+        && incoming().inviteCode == existing().inviteCode
+        && incoming().createdAt == existing().createdAt
+        && incoming().updatedAt == request.time
+        && (
+          (isTeamOwner(teamId) && incoming().diff(existing()).affectedKeys().hasOnly(['name', 'photoUrl', 'formation', 'captainMemberId', 'updatedAt']))
+          || (isTeamMember(teamId) && incoming().diff(existing()).affectedKeys().hasOnly(['formation', 'captainMemberId', 'updatedAt']))
+        );
+      allow delete: if isValidId(teamId) && isEmailVerified() && existing().ownerId == request.auth.uid;
+
+      // Members
+      match /members/{memberId} {
+        allow list: if isValidId(teamId) && isTeamMember(teamId);
+        allow get: if isValidId(teamId) && isValidId(memberId) && isTeamMember(teamId);
+        allow create: if isValidId(teamId)
+          && isValidId(memberId)
+          && isEmailVerified()
+          && isValidTeamMember(incoming(), teamId)
+          && incoming().id == memberId
+          && incoming().createdAt == request.time
+          && incoming().updatedAt == request.time
+          && (
+            (memberId == request.auth.uid && incoming().userId == request.auth.uid && incoming().role == 'owner' && getAfter(/databases/$(database)/documents/teams/$(teamId)).data.ownerId == request.auth.uid)
+            || (isTeamMember(teamId) && incoming().role == 'guest' && incoming().userId == '')
+            || (memberId == request.auth.uid && incoming().userId == request.auth.uid && incoming().role == 'member' && ('inviteCode' in incoming()) && isValidInviteCode(incoming().inviteCode) && exists(/databases/$(database)/documents/invites/$(incoming().inviteCode)) && get(/databases/$(database)/documents/invites/$(incoming().inviteCode)).data.teamId == teamId)
+          );
+        allow update: if isValidId(teamId)
+          && isValidId(memberId)
+          && isEmailVerified()
+          && isValidTeamMember(incoming(), teamId)
+          && incoming().id == existing().id
+          && incoming().teamId == existing().teamId
+          && incoming().userId == existing().userId
+          && incoming().role == existing().role
+          && incoming().createdAt == existing().createdAt
+          && incoming().updatedAt == request.time
+          && isTeamMember(teamId)
+          && incoming().diff(existing()).affectedKeys().hasOnly([
+            'name', 'jerseyNumber', 'position', 'isStarter', 'posX', 'posY',
+            'ovrRating', 'ovrStatus', 'ovrReadyAtMs', 'ovrPendingRating', 'ovrSummary', 'ovrStats', 'ovrExercises', 'ovrUpdatedAtMs',
+            'updatedAt'
+          ]);
+        allow delete: if isValidId(teamId)
+          && isValidId(memberId)
+          && isEmailVerified()
+          && (
+            (isTeamOwner(teamId) && memberId != request.auth.uid)
+            || (isTeamMember(teamId) && existing().role == 'guest')
+            || (isTeamMember(teamId) && existing().userId == request.auth.uid)
+          );
+      }
+
+      // Team Chat Messages
+      match /messages/{messageId} {
+        allow list: if isValidId(teamId) && isTeamMember(teamId);
+        allow get: if isValidId(teamId) && isValidId(messageId) && isTeamMember(teamId);
+        allow create: if isValidId(teamId)
+          && isValidId(messageId)
+          && isEmailVerified()
+          && isTeamMember(teamId)
+          && isValidMessage(incoming(), teamId)
+          && incoming().id == messageId
+          && incoming().createdAt == request.time;
+        allow delete: if isValidId(teamId)
+          && isValidId(messageId)
+          && isEmailVerified()
+          && isTeamMember(teamId)
+          && (existing().senderId == request.auth.uid || isTeamOwner(teamId));
+      }
+
+      // Matches (Live Clock + Extra Time + Score)
+      match /matches/{matchId} {
+        allow list: if isValidId(teamId) && isTeamMember(teamId);
+        allow get: if isValidId(teamId) && isValidId(matchId) && isTeamMember(teamId);
+        allow create: if isValidId(teamId)
+          && isValidId(matchId)
+          && isEmailVerified()
+          && isTeamMember(teamId)
+          && isValidMatch(incoming(), teamId)
+          && incoming().id == matchId
+          && incoming().createdBy == request.auth.uid
+          && incoming().status in ['scheduled', 'live']
+          && incoming().createdAt == request.time
+          && incoming().updatedAt == request.time;
+        allow update: if isValidId(teamId)
+          && isValidId(matchId)
+          && isEmailVerified()
+          && isTeamMember(teamId)
+          && existing().status != 'finished'
+          && isValidMatch(incoming(), teamId)
+          && incoming().id == existing().id
+          && incoming().teamId == existing().teamId
+          && incoming().createdBy == existing().createdBy
+          && incoming().createdAt == existing().createdAt
+          && incoming().updatedAt == request.time
+          && incoming().diff(existing()).affectedKeys().hasOnly(['status', 'teamScore', 'opponentScore', 'extraMinutes', 'elapsedSeconds', 'isClockRunning', 'lastStartedAtMs', 'updatedAt']);
+        allow delete: if isValidId(teamId)
+          && isValidId(matchId)
+          && isEmailVerified()
+          && isTeamOwner(teamId);
+
+        // Match Events (Goals, Cards, Fouls)
+        match /events/{eventId} {
+          allow list: if isValidId(teamId) && isValidId(matchId) && isTeamMember(teamId);
+          allow get: if isValidId(teamId) && isValidId(matchId) && isValidId(eventId) && isTeamMember(teamId);
+          allow create: if isValidId(teamId)
+            && isValidId(matchId)
+            && isValidId(eventId)
+            && isEmailVerified()
+            && isTeamMember(teamId)
+            && get(/databases/$(database)/documents/teams/$(teamId)/matches/$(matchId)).data.status != 'finished'
+            && isValidMatchEvent(incoming(), teamId, matchId)
+            && incoming().id == eventId
+            && incoming().createdAt == request.time;
+          allow delete: if isValidId(teamId)
+            && isValidId(matchId)
+            && isValidId(eventId)
+            && isEmailVerified()
+            && isTeamMember(teamId)
+            && get(/databases/$(database)/documents/teams/$(teamId)/matches/$(matchId)).data.status != 'finished'
+            && (existing().createdBy == request.auth.uid || isTeamOwner(teamId));
+        }
+      }
+
+      // Tactical Plays Board (Comissão Técnica & Jogadores)
+      match /plays/{playId} {
+        allow list: if isValidId(teamId) && isTeamMember(teamId);
+        allow get: if isValidId(teamId) && isValidId(playId) && isTeamMember(teamId);
+        allow create: if isValidId(teamId)
+          && isValidId(playId)
+          && isEmailVerified()
+          && isTeamMember(teamId)
+          && isValidTeamPlay(incoming(), teamId)
+          && incoming().id == playId
+          && incoming().createdBy == request.auth.uid
+          && incoming().createdAt == request.time
+          && incoming().updatedAt == request.time;
+        allow update: if isValidId(teamId)
+          && isValidId(playId)
+          && isEmailVerified()
+          && isTeamMember(teamId)
+          && isValidTeamPlay(incoming(), teamId)
+          && incoming().id == existing().id
+          && incoming().teamId == existing().teamId
+          && incoming().createdBy == existing().createdBy
+          && incoming().createdByName == existing().createdByName
+          && incoming().createdByRole == existing().createdByRole
+          && incoming().createdAt == existing().createdAt
+          && incoming().updatedAt == request.time
+          && incoming().diff(existing()).affectedKeys().hasOnly(['title', 'category', 'description', 'frameCount', 'framesJson', 'updatedAt']);
+        allow delete: if isValidId(teamId)
+          && isValidId(playId)
+          && isEmailVerified()
+          && isTeamMember(teamId)
+          && (existing().createdBy == request.auth.uid || isTeamOwner(teamId));
+      }
+    }
+  }
+}
